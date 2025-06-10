@@ -14,13 +14,19 @@ NEW_IMAGES = 10  # จำนวนภาพใหม่ที
 df_old = pd.read_csv('./old_data/trainset.csv') # ชื่อไฟล์ CSV เก่า
 df_new = pd.read_csv('./new_data/new_train.csv') # ชื่อไฟล์ CSV ใหม่
 df_test = pd.read_csv('./test_data/test.csv') # ชื่อไฟล์ CSV ใหม่
+df_notpra = pd.read_csv('./notpra/trainnotpra.csv') # ชื่อไฟล์ CSV ใหม่ที่ไม่ใช่พระ
+
 old_counts = df_old['name'].value_counts()
 pra_names = old_counts.index.tolist()
 pra_image_counts = old_counts.values
 num_classes = len(pra_names)
+total_notpra = 0
+# --- โฟลเดอร์ภาพ ---
 SOURCE_IMAGE_OLD = 'old_data/old_data/'  # โฟลเดอร์พระเก่า
 SOURCE_IMAGE_NEW = 'new_data/new_data/'  # โฟลเดอร์พระใหม่
 SOURCE_IMAGE_TEST = 'test_data/test_img/'  # โฟลเดอร์เทส
+SOURCE_IMAGE_NOTPRA = 'notpra/notpra/'  # โฟลเดอร์ไม่ใช่พระ
+
 EXPORT_DIR = 'combined'             # โฟลเดอร์รวมใหม่กับเก่า
 IMAGE_EXPORT_DIR = os.path.join(EXPORT_DIR, 'train_new') # สร้างเส้นทางโฟลเดอร์ภาพเทรน
 IMAGE_EXPORT_TEST = os.path.join(EXPORT_DIR, 'images_test') # สร้างเส้นทางโฟลเดอร์ภาพเทส
@@ -28,6 +34,7 @@ os.makedirs(IMAGE_EXPORT_DIR, exist_ok=True) # สร้างทางโฟล
 os.makedirs(IMAGE_EXPORT_TEST, exist_ok=True) # สร้างโฟลเดอร์ภาพเทส
 df_export = df_new.copy()
 df_export_test = df_test.copy()
+
 
 transform = A.Compose([
     A.Rotate(limit=360, p=0.5),
@@ -147,7 +154,6 @@ if len(old_counts) > 0:
             df_sampled = df_subset.sample(num, random_state=42)
             df_sampled_list.append(df_sampled)
 
-
     if df_sampled_list:
         df_sampled_ga = pd.concat(df_sampled_list, ignore_index=True)
 
@@ -155,6 +161,7 @@ if len(old_counts) > 0:
         print("🧠 พระที่เลือกมา:")
         for name, num in selected_pra:
             print(f" - {name}: {num} รูป")
+            total_notpra = num
 
         # คัดลอกภาพเก่า
         copy_images(df_sampled_ga, SOURCE_IMAGE_OLD, IMAGE_EXPORT_DIR)
@@ -176,7 +183,19 @@ df_export.to_csv(csv_path, index=False)
 
 df_combined = pd.read_csv(csv_path)
 # --- ทำ Augmentation ไฟล์ train---
-augment_folder(df_combined, csv_path, IMAGE_EXPORT_DIR, transform, n=5)  # augment ภาพ n = จำนวนที่อยากให้เพิ่มของtrain
+augment_folder(df_combined, csv_path, IMAGE_EXPORT_DIR, transform, n=100)  # augment ภาพ n = จำนวนที่อยากให้เพิ่มของtrain
+
+
+# ----สุ่มnotpraที่จะใช้ ----
+df_selected_notpra = df_notpra.sample(n=total_notpra*100, random_state=42)
+print(f"📈 ได้ notpra รวม {len(df_selected_notpra)} รูป (target = {total_notpra})")
+# คัดลอกภาพ notpra ไปยังโฟลเดอร์ train_new
+copy_images(df_selected_notpra, SOURCE_IMAGE_NOTPRA, IMAGE_EXPORT_DIR)
+
+# รวมข้อมูล notpra เข้ากับ df_export
+df_existing = pd.read_csv(csv_path)
+df_export_combined = pd.concat([df_existing, df_selected_notpra], ignore_index=True)
+df_export_combined.to_csv(csv_path, index=False)
 
 #  ---- สร้างโฟลเดอร์เทส -----------
 copy_images(df_test, SOURCE_IMAGE_TEST, IMAGE_EXPORT_TEST)
@@ -186,10 +205,7 @@ df_export_test.to_csv(csv_test_path, index=False)
 df_combined_test = pd.read_csv(csv_test_path)
 
 # --- ทำ Augmentation สำหรับภาพเทส ---
-augment_folder(df_combined_test, csv_test_path, IMAGE_EXPORT_TEST, transform, n=2)  # augment ภาพ n = จำนวนที่อยากให้ของtest
+augment_folder(df_combined_test, csv_test_path, IMAGE_EXPORT_TEST, transform, n=10)  # augment ภาพ n = จำนวนที่อยากให้ของtest
 
 print(f"\n✅ คัดลอกรูปภาพเรียบร้อยไปยัง: {EXPORT_DIR}")
 print(f"📄 สร้างไฟล์ CSV พร้อมทุกคอลัมน์แล้วที่: {csv_path}")
-
-
-

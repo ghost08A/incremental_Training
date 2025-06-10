@@ -1,5 +1,8 @@
 /new_data/
 /old_data/
 /test_data/
-.encoders.pkl
+*.pkl
 *.keras
+/notpra/
+/combined/
+*.zip
